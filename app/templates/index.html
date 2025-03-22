@@ -1,0 +1,254 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="hero-section py-5 text-center">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6 order-lg-2">
+                <img src="{{ url_for('static', filename='images/hero-image.png') }}" alt="Meal Planning" class="img-fluid rounded shadow mb-4 mb-lg-0" onerror="this.src='https://via.placeholder.com/600x400?text=Comrade+Meal+Plan'">
+            </div>
+            <div class="col-lg-6 order-lg-1 text-lg-start">
+                <h1 class="display-4 fw-bold mb-4">Comrade Affordable Meal Plan</h1>
+                <p class="lead mb-4">Generate budget-friendly meal plans that are nutritious and delicious for busy university students in Kenya.</p>
+                <div class="hero-features mb-4">
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="feature-icon me-3 bg-primary text-white rounded-circle p-2">
+                            <i class="fas fa-money-bill-wave"></i>
+                        </div>
+                        <span>Budget-friendly meal options</span>
+                    </div>
+                    <div class="d-flex align-items-center mb-3">
+                        <div class="feature-icon me-3 bg-primary text-white rounded-circle p-2">
+                            <i class="fas fa-carrot"></i>
+                        </div>
+                        <span>Nutritious and balanced ingredients</span>
+                    </div>
+                    <div class="d-flex align-items-center">
+                        <div class="feature-icon me-3 bg-primary text-white rounded-circle p-2">
+                            <i class="fas fa-history"></i>
+                        </div>
+                        <span>Save and track your meal history</span>
+                    </div>
+                </div>
+                <div class="d-grid gap-2 d-md-flex justify-content-md-start">
+                    {% if current_user.is_authenticated %}
+                        <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary btn-lg px-4 me-md-2">
+                            <i class="fas fa-utensils me-2"></i>Get Meal Plans
+                        </a>
+                    {% else %}
+                        <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg px-4 me-md-2">
+                            <i class="fas fa-user-plus me-2"></i>Sign Up
+                        </a>
+                        <a href="{{ url_for('auth.login') }}" class="btn btn-outline-primary btn-lg px-4">
+                            <i class="fas fa-sign-in-alt me-2"></i>Login
+                        </a>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<section class="features-section py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center mb-5">How It Works</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon-lg mx-auto mb-4 bg-primary text-white rounded-circle">
+                            <i class="fas fa-clock fa-2x p-3"></i>
+                        </div>
+                        <h4>Select Mealtime</h4>
+                        <p class="text-muted">Choose between breakfast, lunch, or supper based on your current needs.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon-lg mx-auto mb-4 bg-primary text-white rounded-circle">
+                            <i class="fas fa-coins fa-2x p-3"></i>
+                        </div>
+                        <h4>Enter Your Budget</h4>
+                        <p class="text-muted">Specify how much you want to spend in KES and add any meal preferences.</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body text-center p-4">
+                        <div class="feature-icon-lg mx-auto mb-4 bg-primary text-white rounded-circle">
+                            <i class="fas fa-utensils fa-2x p-3"></i>
+                        </div>
+                        <h4>Get Meal Suggestions</h4>
+                        <p class="text-muted">Receive three AI-generated meal options that fit your budget and preferences.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="benefits-section py-5">
+    <div class="container">
+        <div class="row align-items-center">
+            <div class="col-lg-6 mb-4 mb-lg-0">
+                <img src="{{ url_for('static', filename='images/benefits.png') }}" alt="Benefits" class="img-fluid rounded shadow" onerror="this.src='https://via.placeholder.com/600x400?text=Benefits'">
+            </div>
+            <div class="col-lg-6">
+                <h2 class="mb-4">Why Choose Comrade Meal Plan?</h2>
+                <div class="benefits-list">
+                    <div class="d-flex mb-4">
+                        <div class="flex-shrink-0">
+                            <div class="benefit-icon bg-primary text-white rounded-circle p-2">
+                                <i class="fas fa-wallet"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5>Save Money</h5>
+                            <p class="text-muted">Get meal suggestions that fit your budget without compromising on nutrition.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex mb-4">
+                        <div class="flex-shrink-0">
+                            <div class="benefit-icon bg-primary text-white rounded-circle p-2">
+                                <i class="fas fa-apple-alt"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5>Eat Healthier</h5>
+                            <p class="text-muted">All meal plans include nutritional information and balanced ingredients.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex mb-4">
+                        <div class="flex-shrink-0">
+                            <div class="benefit-icon bg-primary text-white rounded-circle p-2">
+                                <i class="fas fa-clock"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5>Save Time</h5>
+                            <p class="text-muted">Quick and easy-to-prepare meals designed for busy university students.</p>
+                        </div>
+                    </div>
+                    <div class="d-flex">
+                        <div class="flex-shrink-0">
+                            <div class="benefit-icon bg-primary text-white rounded-circle p-2">
+                                <i class="fas fa-lightbulb"></i>
+                            </div>
+                        </div>
+                        <div class="flex-grow-1 ms-3">
+                            <h5>Discover New Meals</h5>
+                            <p class="text-muted">Explore a variety of meal options that you might not have considered before.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="testimonials-section py-5 bg-light">
+    <div class="container">
+        <h2 class="text-center mb-5">What Our Users Say</h2>
+        <div class="row g-4">
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="d-flex mb-3">
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                        </div>
+                        <p class="fst-italic mb-4">"This app has saved me so much money and time! I used to waste food and money buying random ingredients, but now I have a plan and stick to my budget."</p>
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="testimonial-avatar bg-primary text-white rounded-circle p-2">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="mb-0">John Kamau</h6>
+                                <small class="text-muted">University of Nairobi</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="d-flex mb-3">
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                        </div>
+                        <p class="fst-italic mb-4">"I never knew how to cook affordable, nutritious meals until I found this app. Now I eat healthier and spend way less than when I was eating out!"</p>
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="testimonial-avatar bg-primary text-white rounded-circle p-2">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="mb-0">Sarah Wanjiku</h6>
+                                <small class="text-muted">Kenyatta University</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card h-100 border-0 shadow-sm">
+                    <div class="card-body p-4">
+                        <div class="d-flex mb-3">
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star text-warning"></i>
+                            <i class="fas fa-star-half-alt text-warning"></i>
+                        </div>
+                        <p class="fst-italic mb-4">"As a student far from home, I was struggling with meal planning. This app suggests meals I can actually make with ingredients available near campus."</p>
+                        <div class="d-flex align-items-center">
+                            <div class="flex-shrink-0">
+                                <div class="testimonial-avatar bg-primary text-white rounded-circle p-2">
+                                    <i class="fas fa-user"></i>
+                                </div>
+                            </div>
+                            <div class="flex-grow-1 ms-3">
+                                <h6 class="mb-0">Michael Otieno</h6>
+                                <small class="text-muted">Moi University</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="cta-section py-5">
+    <div class="container">
+        <div class="row justify-content-center">
+            <div class="col-lg-8 text-center">
+                <h2 class="mb-4">Ready to start planning your meals?</h2>
+                <p class="lead mb-4">Join thousands of university students in Kenya who are eating better while spending less!</p>
+                {% if current_user.is_authenticated %}
+                    <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary btn-lg px-5">
+                        <i class="fas fa-utensils me-2"></i>Go to Dashboard
+                    </a>
+                {% else %}
+                    <a href="{{ url_for('auth.register') }}" class="btn btn-primary btn-lg px-5">
+                        <i class="fas fa-user-plus me-2"></i>Sign Up Now
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</section>
+{% endblock %} 

@@ -1,0 +1,268 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow">
+                <div class="card-body p-4">
+                    <div class="d-flex justify-content-between align-items-center mb-4">
+                        <h2 class="card-title mb-0"><i class="fas fa-history me-2 text-primary"></i>Your Meal History</h2>
+                        <a href="{{ url_for('main.dashboard') }}" class="btn btn-primary">
+                            <i class="fas fa-plus me-2"></i>Generate New Meal
+                        </a>
+                    </div>
+                    
+                    {% if history %}
+                        <div class="mb-4">
+                            <div class="card mb-4">
+                                <div class="card-body p-3">
+                                    <div class="row">
+                                        <div class="col-md-4 mb-3 mb-md-0">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <i class="fas fa-utensils fa-2x text-primary"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-0">Total Meals</h6>
+                                                    <h4 class="mb-0">{{ history|length }}</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4 mb-3 mb-md-0">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <i class="fas fa-coins fa-2x text-success"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-0">Average Budget</h6>
+                                                    <h4 class="mb-0">KES {{ '%.2f'|format(history|map(attribute='budget')|sum / history|length) }}</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                        <div class="col-md-4">
+                                            <div class="d-flex align-items-center">
+                                                <div class="me-3">
+                                                    <i class="fas fa-calendar-alt fa-2x text-info"></i>
+                                                </div>
+                                                <div>
+                                                    <h6 class="mb-0">First Meal</h6>
+                                                    <h4 class="mb-0">{{ history[-1].date_selected.strftime('%Y-%m-%d') }}</h4>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Meal Type</th>
+                                        <th>Meal Name</th>
+                                        <th>Budget</th>
+                                        <th>Preferences</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for meal in history %}
+                                    <tr>
+                                        <td>{{ meal.date_selected.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td><span class="badge bg-{{ 'primary' if meal.meal_type == 'Breakfast' else 'success' if meal.meal_type == 'Lunch' else 'info' }}">{{ meal.meal_type }}</span></td>
+                                        <td>{{ meal.meal_name if meal.meal_name else "Unknown" }}</td>
+                                        <td>KES {{ meal.budget }}</td>
+                                        <td>
+                                            {% if meal.preferences %}
+                                                <span class="text-truncate d-inline-block" style="max-width: 200px;" title="{{ meal.preferences }}">
+                                                    {{ meal.preferences }}
+                                                </span>
+                                            {% else %}
+                                                <span class="text-muted">None</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary view-meal-btn" data-meal-id="{{ meal.id }}">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>You haven't saved any meal plans yet. 
+                            <a href="{{ url_for('main.dashboard') }}" class="alert-link">Generate your first meal plan!</a>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal for viewing meal details -->
+<div class="modal fade" id="mealDetailsModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="mealDetailsTitle">Meal Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="mb-3">Description</h5>
+                        <p id="mealDescription"></p>
+                        
+                        <h5 class="mb-3">Ingredients</h5>
+                        <ul class="list-group" id="ingredientsList">
+                        </ul>
+                        
+                        <div class="mt-3">
+                            <h5 class="mb-3">Meal Information</h5>
+                            <ul class="list-group list-group-flush">
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Meal Type
+                                    <span class="badge bg-primary rounded-pill" id="mealType"></span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Budget
+                                    <span class="badge bg-success rounded-pill" id="mealBudget"></span>
+                                </li>
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    Date Selected
+                                    <span id="mealDate"></span>
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="mb-3">Nutritional Information</h5>
+                        <div class="card mb-3">
+                            <div class="card-body p-3" id="nutritionalInfo">
+                                <!-- Nutritional information will be inserted here -->
+                            </div>
+                        </div>
+                        
+                        <h5 class="mb-3">Preferences</h5>
+                        <p id="mealPreferences" class="fst-italic">None specified</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // View meal details
+        const viewMealBtns = document.querySelectorAll('.view-meal-btn');
+        viewMealBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const mealId = this.dataset.mealId;
+                fetch(`/api/meal-details/${mealId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const meal = data.data;
+                        displayMealDetails(meal);
+                    } else {
+                        alert(data.message || 'An error occurred while fetching meal details.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while fetching meal details.');
+                });
+            });
+        });
+
+        // Display meal details in modal
+        function displayMealDetails(meal) {
+            const modal = document.getElementById('mealDetailsModal');
+            const modalTitle = document.getElementById('mealDetailsTitle');
+            const mealDescription = document.getElementById('mealDescription');
+            const ingredientsList = document.getElementById('ingredientsList');
+            const mealType = document.getElementById('mealType');
+            const mealBudget = document.getElementById('mealBudget');
+            const mealDate = document.getElementById('mealDate');
+            const nutritionalInfo = document.getElementById('nutritionalInfo');
+            const mealPreferences = document.getElementById('mealPreferences');
+            
+            modalTitle.textContent = meal.meal_name;
+            mealDescription.textContent = meal.description || 'No description available.';
+            mealType.textContent = meal.meal_type;
+            mealBudget.textContent = `KES ${meal.budget}`;
+            mealDate.textContent = meal.date_selected;
+            mealPreferences.textContent = meal.preferences || 'None specified';
+            
+            // Clear previous ingredients
+            ingredientsList.innerHTML = '';
+            
+            // Add ingredients
+            if (meal.ingredients && meal.ingredients.length > 0) {
+                meal.ingredients.forEach(ingredient => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    if (typeof ingredient === 'object') {
+                        li.textContent = `${ingredient.name} (${ingredient.amount}) - KES ${ingredient.cost}`;
+                    } else {
+                        li.textContent = ingredient;
+                    }
+                    ingredientsList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = 'No ingredients available.';
+                ingredientsList.appendChild(li);
+            }
+            
+            // Clear previous nutritional info
+            nutritionalInfo.innerHTML = '';
+            
+            // Add nutritional info
+            if (meal.nutritional_info && Object.keys(meal.nutritional_info).length > 0) {
+                for (const [key, value] of Object.entries(meal.nutritional_info)) {
+                    const div = document.createElement('div');
+                    div.className = 'nutrient-info';
+                    
+                    const label = document.createElement('span');
+                    label.className = 'label';
+                    label.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+                    
+                    const valueSpan = document.createElement('span');
+                    valueSpan.textContent = value;
+                    
+                    div.appendChild(label);
+                    div.appendChild(valueSpan);
+                    
+                    nutritionalInfo.appendChild(div);
+                }
+            } else {
+                nutritionalInfo.textContent = 'No nutritional information available.';
+            }
+            
+            // Show modal
+            const modalInstance = new bootstrap.Modal(modal);
+            modalInstance.show();
+        }
+    });
+</script>
+{% endblock %} 

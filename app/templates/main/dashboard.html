@@ -1,0 +1,539 @@
+{% extends "layout.html" %}
+
+{% block head %}
+<style>
+    .meal-card {
+        transition: transform 0.3s ease;
+    }
+    .meal-card:hover {
+        transform: translateY(-5px);
+    }
+    .instructions-list {
+        counter-reset: step;
+    }
+    .instructions-list li {
+        counter-increment: step;
+        margin-bottom: 10px;
+    }
+    .instructions-list li::before {
+        content: 'Step ' counter(step);
+        font-weight: bold;
+        color: var(--bs-primary);
+        margin-right: 5px;
+    }
+    .loading-container {
+        display: none;
+        justify-content: center;
+        align-items: center;
+        min-height: 400px;
+    }
+    .meal-plans-container {
+        display: none;
+    }
+    .nutrient-info {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 5px;
+    }
+    .nutrient-info .label {
+        font-weight: bold;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-md-12">
+            <div class="card border-0 shadow">
+                <div class="card-body p-4">
+                    <h2 class="card-title mb-4"><i class="fas fa-utensils me-2 text-primary"></i>Generate Your Meal Plan</h2>
+                    <form id="mealPlanForm">
+                        {{ form.csrf_token }}
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                {{ form.meal_type.label(class="form-label") }}
+                                {{ form.meal_type(class="form-select") }}
+                                <div class="invalid-feedback" id="meal-type-error"></div>
+                            </div>
+                            <div class="col-md-4">
+                                {{ form.budget.label(class="form-label") }}
+                                <div class="input-group">
+                                    <span class="input-group-text">KES</span>
+                                    {{ form.budget(class="form-control", placeholder="e.g. 100") }}
+                                </div>
+                                <div class="invalid-feedback" id="budget-error"></div>
+                            </div>
+                            <div class="col-md-4 d-flex align-items-end">
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fas fa-search me-2"></i>Find Meals
+                                </button>
+                            </div>
+                            <div class="col-md-12">
+                                {{ form.preferences.label(class="form-label") }}
+                                {{ form.preferences(class="form-control", rows=2) }}
+                                <div class="form-text">Optional: Enter any preferences (e.g., vegetarian, no beef, spicy food, etc.)</div>
+                                <div class="invalid-feedback" id="preferences-error"></div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Loading Spinner -->
+    <div class="loading-container" id="loading">
+        <div class="text-center">
+            <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <p class="mt-3 text-primary fw-bold">Generating your meal plans...</p>
+            <p class="text-muted">This may take a few seconds</p>
+        </div>
+    </div>
+
+    <!-- Meal Plans Container -->
+    <div class="meal-plans-container" id="mealPlansContainer">
+        <h3 class="mb-4"><i class="fas fa-list-alt me-2 text-primary"></i>Your Meal Suggestions</h3>
+        <div class="row g-4" id="mealPlansRow">
+            <!-- Meal cards will be inserted here by JavaScript -->
+        </div>
+    </div>
+
+    <!-- Recent Meals Section -->
+    <div class="row mt-5">
+        <div class="col-md-12">
+            <div class="card border-0 shadow">
+                <div class="card-body p-4">
+                    <h3 class="card-title mb-4"><i class="fas fa-history me-2 text-primary"></i>Recent Meal Plans</h3>
+                    {% if recent_meals %}
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Meal Type</th>
+                                        <th>Meal Name</th>
+                                        <th>Budget</th>
+                                        <th>Action</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for meal in recent_meals %}
+                                    <tr>
+                                        <td>{{ meal.date_selected.strftime('%Y-%m-%d %H:%M') }}</td>
+                                        <td><span class="badge bg-{{ 'primary' if meal.meal_type == 'Breakfast' else 'success' if meal.meal_type == 'Lunch' else 'info' }}">{{ meal.meal_type }}</span></td>
+                                        <td>{{ meal.meal_name if meal.meal_name else "Unknown" }}</td>
+                                        <td>KES {{ meal.budget }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary view-meal-btn" data-meal-id="{{ meal.id }}">
+                                                <i class="fas fa-eye"></i> View
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="text-end mt-3">
+                            <a href="{{ url_for('main.meal_history') }}" class="btn btn-outline-primary">
+                                <i class="fas fa-history me-2"></i>View All History
+                            </a>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            <i class="fas fa-info-circle me-2"></i>You haven't saved any meal plans yet. Generate your first meal plan above!
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal template for meal details -->
+<div class="modal fade" id="mealDetailsModal" tabindex="-1" aria-labelledby="mealDetailsModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="mealDetailsModalLabel">Meal Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="row">
+                    <div class="col-md-7">
+                        <h4 id="modal-meal-name"></h4>
+                        <p class="text-muted mb-3" id="modal-meal-description"></p>
+                        
+                        <h5><i class="fas fa-shopping-basket me-2 text-primary"></i>Ingredients</h5>
+                        <ul class="list-group mb-4" id="modal-ingredients-list">
+                            <!-- Ingredients will be inserted here -->
+                        </ul>
+                        
+                        <h5><i class="fas fa-utensils me-2 text-primary"></i>Instructions</h5>
+                        <ol class="instructions-list mb-4" id="modal-instructions-list">
+                            <!-- Instructions will be inserted here -->
+                        </ol>
+                    </div>
+                    <div class="col-md-5">
+                        <div class="card border-primary mb-3">
+                            <div class="card-header bg-primary text-white">
+                                <i class="fas fa-info-circle me-2"></i>Meal Information
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="fw-bold">Meal Type:</span>
+                                    <span id="modal-meal-type"></span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="fw-bold">Total Cost:</span>
+                                    <span class="fw-bold text-primary" id="modal-meal-cost"></span>
+                                </div>
+                                <div class="d-flex justify-content-between mb-2">
+                                    <span class="fw-bold">Budget:</span>
+                                    <span id="modal-budget"></span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="card border-success">
+                            <div class="card-header bg-success text-white">
+                                <i class="fas fa-heartbeat me-2"></i>Nutritional Information
+                            </div>
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span>Calories:</span>
+                                    <span class="badge bg-info text-dark" id="modal-calories"></span>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label mb-1">Protein:</label>
+                                    <div class="progress" style="height: 10px;">
+                                        <div class="progress-bar bg-success protein-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    <div class="d-flex justify-content-end mt-1">
+                                        <small class="text-muted" id="modal-protein"></small>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label mb-1">Carbs:</label>
+                                    <div class="progress" style="height: 10px;">
+                                        <div class="progress-bar bg-warning carbs-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    <div class="d-flex justify-content-end mt-1">
+                                        <small class="text-muted" id="modal-carbs"></small>
+                                    </div>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label mb-1">Fat:</label>
+                                    <div class="progress" style="height: 10px;">
+                                        <div class="progress-bar bg-danger fat-bar" role="progressbar" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+                                    </div>
+                                    <div class="d-flex justify-content-end mt-1">
+                                        <small class="text-muted" id="modal-fat"></small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Template for meal card -->
+<template id="mealCardTemplate">
+    <div class="col-md-4">
+        <div class="card meal-card h-100 border-0 shadow-sm">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="card-title mb-0 meal-name">Meal Name</h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text meal-description">Description</p>
+                <h6 class="card-subtitle mb-2 text-muted">Ingredients:</h6>
+                <ul class="ingredients-list small"></ul>
+                <h6 class="card-subtitle mb-2 text-muted">Instructions:</h6>
+                <ol class="instructions-list small"></ol>
+                <div class="card-text mt-3">
+                    <div class="d-flex justify-content-between">
+                        <span class="text-muted">Total Cost:</span>
+                        <span class="fw-bold text-success meal-cost">KES 0</span>
+                    </div>
+                </div>
+            </div>
+            <div class="card-footer bg-light">
+                <button class="btn btn-primary w-100 select-meal-btn">
+                    <i class="fas fa-utensils me-2"></i>Select This Meal
+                </button>
+            </div>
+        </div>
+    </div>
+</template>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const mealPlanForm = document.getElementById('mealPlanForm');
+        const loadingContainer = document.getElementById('loading');
+        const mealPlansContainer = document.getElementById('mealPlansContainer');
+        const mealPlansRow = document.getElementById('mealPlansRow');
+        const mealCardTemplate = document.getElementById('mealCardTemplate');
+
+        // Meal selection event
+        mealPlansRow.addEventListener('click', function(e) {
+            if (e.target.classList.contains('select-meal-btn') || e.target.parentElement.classList.contains('select-meal-btn')) {
+                const button = e.target.classList.contains('select-meal-btn') ? e.target : e.target.parentElement;
+                const card = button.closest('.meal-card');
+                const mealData = JSON.parse(card.dataset.meal);
+                saveMeal(mealData);
+            }
+        });
+
+        // Form submission handler
+        mealPlanForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            // Reset errors
+            document.getElementById('meal-type-error').textContent = '';
+            document.getElementById('budget-error').textContent = '';
+            document.getElementById('preferences-error').textContent = '';
+            
+            const formData = {
+                meal_type: document.getElementById('meal_type').value,
+                budget: document.getElementById('budget').value,
+                preferences: document.getElementById('preferences').value
+            };
+            
+            // Show loading spinner
+            loadingContainer.style.display = 'flex';
+            mealPlansContainer.style.display = 'none';
+            
+            fetch("{{ url_for('main.get_meal_plans') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify(formData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                loadingContainer.style.display = 'none';
+                
+                if (data.status === 'success') {
+                    displayMealPlans(data.data, formData);
+                } else if (data.status === 'error') {
+                    if (data.errors) {
+                        for (const [field, errors] of Object.entries(data.errors)) {
+                            document.getElementById(`${field}-error`).textContent = errors[0];
+                            document.getElementById(field).classList.add('is-invalid');
+                        }
+                    } else {
+                        alert(data.message || 'An error occurred while generating meal plans.');
+                    }
+                }
+            })
+            .catch(error => {
+                loadingContainer.style.display = 'none';
+                console.error('Error:', error);
+                alert('An error occurred while generating meal plans.');
+            });
+        });
+
+        // Display meal plans in cards
+        function displayMealPlans(meals, formData) {
+            mealPlansRow.innerHTML = '';
+            
+            meals.forEach(meal => {
+                // Add form data to meal object
+                meal.meal_type = formData.meal_type;
+                meal.budget = parseFloat(formData.budget);
+                meal.preferences = formData.preferences;
+                
+                const mealCard = document.importNode(mealCardTemplate.content, true).querySelector('.col-md-4');
+                const card = mealCard.querySelector('.meal-card');
+                
+                // Store meal data in card for later use
+                card.dataset.meal = JSON.stringify(meal);
+                
+                // Fill in meal details
+                mealCard.querySelector('.meal-name').textContent = meal.name;
+                mealCard.querySelector('.meal-description').textContent = meal.description;
+                mealCard.querySelector('.meal-cost').textContent = `KES ${meal.total_cost}`;
+                
+                // Add ingredients
+                const ingredientsList = mealCard.querySelector('.ingredients-list');
+                meal.ingredients.forEach(ingredient => {
+                    const li = document.createElement('li');
+                    li.textContent = `${ingredient.name} (${ingredient.amount}) - KES ${ingredient.cost}`;
+                    ingredientsList.appendChild(li);
+                });
+                
+                // Add instructions
+                const instructionsList = mealCard.querySelector('.instructions-list');
+                meal.instructions.forEach(instruction => {
+                    const li = document.createElement('li');
+                    li.textContent = instruction;
+                    instructionsList.appendChild(li);
+                });
+                
+                mealPlansRow.appendChild(mealCard);
+            });
+            
+            mealPlansContainer.style.display = 'block';
+        }
+
+        // Save selected meal to database
+        function saveMeal(mealData) {
+            fetch("{{ url_for('main.save_meal') }}", {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': document.querySelector('meta[name="csrf-token"]').getAttribute('content')
+                },
+                body: JSON.stringify(mealData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Meal saved successfully! You can view it in your meal history.');
+                    location.reload(); // Reload page to show the new meal in history
+                } else {
+                    alert(data.message || 'An error occurred while saving the meal.');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('An error occurred while saving the meal.');
+            });
+        }
+
+        // View meal details
+        const viewMealBtns = document.querySelectorAll('.view-meal-btn');
+        viewMealBtns.forEach(btn => {
+            btn.addEventListener('click', function() {
+                const mealId = this.dataset.mealId;
+                fetch(`/api/meal-details/${mealId}`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        const meal = data.data;
+                        displayMealDetails(meal);
+                    } else {
+                        alert(data.message || 'An error occurred while fetching meal details.');
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while fetching meal details.');
+                });
+            });
+        });
+
+        // Display meal details in modal
+        function displayMealDetails(meal) {
+            const modal = document.getElementById('mealDetailsModal');
+            const modalTitle = document.getElementById('mealDetailsModalLabel');
+            const mealName = document.getElementById('modal-meal-name');
+            const mealDescription = document.getElementById('modal-meal-description');
+            const ingredientsList = document.getElementById('modal-ingredients-list');
+            const instructionsList = document.getElementById('modal-instructions-list');
+            const mealType = document.getElementById('modal-meal-type');
+            const mealCost = document.getElementById('modal-meal-cost');
+            const budget = document.getElementById('modal-budget');
+            const calories = document.getElementById('modal-calories');
+            const proteinBar = document.querySelector('.protein-bar');
+            const carbsBar = document.querySelector('.carbs-bar');
+            const fatBar = document.querySelector('.fat-bar');
+            const protein = document.getElementById('modal-protein');
+            const carbs = document.getElementById('modal-carbs');
+            const fat = document.getElementById('modal-fat');
+            
+            modalTitle.textContent = meal.meal_name;
+            mealName.textContent = meal.meal_name;
+            mealDescription.textContent = meal.description || 'No description available.';
+            mealType.textContent = meal.meal_type;
+            mealCost.textContent = `KES ${meal.total_cost}`;
+            budget.textContent = `KES ${meal.budget}`;
+            calories.textContent = meal.nutritional_info.calories || 'N/A';
+            
+            // Clear previous ingredients
+            ingredientsList.innerHTML = '';
+            
+            // Add ingredients
+            if (meal.ingredients && meal.ingredients.length > 0) {
+                meal.ingredients.forEach(ingredient => {
+                    const li = document.createElement('li');
+                    li.className = 'list-group-item';
+                    if (typeof ingredient === 'object') {
+                        li.textContent = `${ingredient.name} (${ingredient.amount}) - KES ${ingredient.cost}`;
+                    } else {
+                        li.textContent = ingredient;
+                    }
+                    ingredientsList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.className = 'list-group-item';
+                li.textContent = 'No ingredients available.';
+                ingredientsList.appendChild(li);
+            }
+            
+            // Clear previous instructions
+            instructionsList.innerHTML = '';
+            
+            // Add instructions
+            if (meal.instructions && meal.instructions.length > 0) {
+                meal.instructions.forEach(instruction => {
+                    const li = document.createElement('li');
+                    li.textContent = instruction;
+                    instructionsList.appendChild(li);
+                });
+            } else {
+                const li = document.createElement('li');
+                li.textContent = 'No instructions available.';
+                instructionsList.appendChild(li);
+            }
+            
+            // Update nutritional progress bars
+            if (meal.nutritional_info && meal.nutritional_info.protein) {
+                proteinBar.style.width = `${meal.nutritional_info.protein}%`;
+                protein.textContent = `${meal.nutritional_info.protein}%`;
+            } else {
+                proteinBar.style.width = '0%';
+                protein.textContent = '0%';
+            }
+            
+            if (meal.nutritional_info && meal.nutritional_info.carbs) {
+                carbsBar.style.width = `${meal.nutritional_info.carbs}%`;
+                carbs.textContent = `${meal.nutritional_info.carbs}%`;
+            } else {
+                carbsBar.style.width = '0%';
+                carbs.textContent = '0%';
+            }
+            
+            if (meal.nutritional_info && meal.nutritional_info.fat) {
+                fatBar.style.width = `${meal.nutritional_info.fat}%`;
+                fat.textContent = `${meal.nutritional_info.fat}%`;
+            } else {
+                fatBar.style.width = '0%';
+                fat.textContent = '0%';
+            }
+            
+            // Show modal
+            const modalInstance = new bootstrap.Modal(modal);
+            modalInstance.show();
+        }
+    });
+</script>
+{% endblock %} 

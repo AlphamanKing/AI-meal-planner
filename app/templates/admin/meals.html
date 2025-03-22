@@ -1,0 +1,280 @@
+{% extends "layout.html" %}
+
+{% block title %}Manage Meals{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Manage Meals</h1>
+        <a href="{{ url_for('admin.dashboard') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-arrow-left"></i> Back to Dashboard
+        </a>
+    </div>
+
+    <!-- Filters -->
+    <div class="card mb-4">
+        <div class="card-header bg-light">
+            <h5 class="mb-0">Filters</h5>
+        </div>
+        <div class="card-body">
+            <form method="GET" action="{{ url_for('admin.meals') }}" class="row g-3">
+                <div class="col-md-3">
+                    <label for="username" class="form-label">Username</label>
+                    <input type="text" class="form-control" id="username" name="username" value="{{ request.args.get('username', '') }}">
+                </div>
+                <div class="col-md-3">
+                    <label for="meal_name" class="form-label">Meal Name</label>
+                    <input type="text" class="form-control" id="meal_name" name="meal_name" value="{{ request.args.get('meal_name', '') }}">
+                </div>
+                <div class="col-md-2">
+                    <label for="meal_type" class="form-label">Meal Type</label>
+                    <select class="form-select" id="meal_type" name="meal_type">
+                        <option value="">All</option>
+                        <option value="Breakfast" {% if request.args.get('meal_type') == 'Breakfast' %}selected{% endif %}>Breakfast</option>
+                        <option value="Lunch" {% if request.args.get('meal_type') == 'Lunch' %}selected{% endif %}>Lunch</option>
+                        <option value="Supper" {% if request.args.get('meal_type') == 'Supper' %}selected{% endif %}>Supper</option>
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label for="date_range" class="form-label">Date Range</label>
+                    <select class="form-select" id="date_range" name="date_range">
+                        <option value="">All Time</option>
+                        <option value="today" {% if request.args.get('date_range') == 'today' %}selected{% endif %}>Today</option>
+                        <option value="week" {% if request.args.get('date_range') == 'week' %}selected{% endif %}>This Week</option>
+                        <option value="month" {% if request.args.get('date_range') == 'month' %}selected{% endif %}>This Month</option>
+                    </select>
+                </div>
+                <div class="col-md-2 d-flex align-items-end">
+                    <button type="submit" class="btn btn-primary w-100">Apply Filters</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Meals Table -->
+    <div class="card">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">Meals List</h5>
+            <span class="badge bg-primary">{{ meals|length }} meals</span>
+        </div>
+        <div class="card-body">
+            {% if meals %}
+            <div class="table-responsive">
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>User</th>
+                            <th>Meal Name</th>
+                            <th>Meal Type</th>
+                            <th>Budget</th>
+                            <th>Created</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for meal in meals %}
+                        <tr>
+                            <td>{{ meal.id }}</td>
+                            <td>
+                                <a href="{{ url_for('admin.user_details', user_id=meal.user.id) }}">
+                                    {{ meal.user.username }}
+                                </a>
+                            </td>
+                            <td>{{ meal.name }}</td>
+                            <td>
+                                <span class="badge bg-{{ meal.meal_type|lower }}">
+                                    {{ meal.meal_type }}
+                                </span>
+                            </td>
+                            <td>KES {{ meal.budget }}</td>
+                            <td>{{ meal.date_created.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <a href="{{ url_for('admin.meal_details', meal_id=meal.id) }}" class="btn btn-outline-primary" title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </a>
+                                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteMealModal" data-meal-id="{{ meal.id }}" data-meal-name="{{ meal.name }}" title="Delete Meal">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            
+            <!-- Pagination -->
+            <nav aria-label="Page navigation" class="mt-4">
+                <ul class="pagination justify-content-center">
+                    <li class="page-item {% if not prev_page %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('admin.meals', page=prev_page, **request.args) if prev_page }}" aria-label="Previous">
+                            <span aria-hidden="true">&laquo;</span>
+                        </a>
+                    </li>
+                    {% for p in range(1, total_pages + 1) %}
+                    <li class="page-item {% if p == current_page %}active{% endif %}">
+                        <a class="page-link" href="{{ url_for('admin.meals', page=p, **request.args) }}">{{ p }}</a>
+                    </li>
+                    {% endfor %}
+                    <li class="page-item {% if not next_page %}disabled{% endif %}">
+                        <a class="page-link" href="{{ url_for('admin.meals', page=next_page, **request.args) if next_page }}" aria-label="Next">
+                            <span aria-hidden="true">&raquo;</span>
+                        </a>
+                    </li>
+                </ul>
+            </nav>
+            {% else %}
+            <div class="alert alert-info text-center" role="alert">
+                No meals found matching your criteria.
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Meal Stats -->
+    <div class="row mt-4">
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Meal Types Distribution</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="mealTypeChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-md-6 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Budget Ranges</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="budgetRangeChart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Meal Modal -->
+<div class="modal fade" id="deleteMealModal" tabindex="-1" aria-labelledby="deleteMealModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteMealModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete meal "<span id="deleteMealName"></span>"?</p>
+                <p class="text-danger"><strong>Warning:</strong> This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form id="deleteMealForm" method="POST" action="">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">Delete Meal</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Set up delete meal modal
+        const deleteMealModal = document.getElementById('deleteMealModal');
+        if (deleteMealModal) {
+            deleteMealModal.addEventListener('show.bs.modal', function(event) {
+                const button = event.relatedTarget;
+                const mealId = button.getAttribute('data-meal-id');
+                const mealName = button.getAttribute('data-meal-name');
+                
+                // Update modal content
+                document.getElementById('deleteMealName').textContent = mealName;
+                
+                // Update form action
+                document.getElementById('deleteMealForm').action = "{{ url_for('admin.delete_meal', meal_id=0) }}".replace('0', mealId);
+            });
+        }
+        
+        // Set up charts
+        setupMealTypeChart();
+        setupBudgetRangeChart();
+    });
+    
+    function setupMealTypeChart() {
+        const ctx = document.getElementById('mealTypeChart');
+        if (!ctx) return;
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Breakfast', 'Lunch', 'Supper'],
+                datasets: [{
+                    data: [{{ meal_type_counts.Breakfast or 0 }}, {{ meal_type_counts.Lunch or 0 }}, {{ meal_type_counts.Supper or 0 }}],
+                    backgroundColor: [
+                        'rgba(255, 99, 132, 0.7)',
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 206, 86, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(255, 99, 132, 1)',
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
+            }
+        });
+    }
+    
+    function setupBudgetRangeChart() {
+        const ctx = document.getElementById('budgetRangeChart');
+        if (!ctx) return;
+        
+        new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: ['0-100', '101-200', '201-300', '301-400', '401+'],
+                datasets: [{
+                    label: 'Number of Meals',
+                    data: [
+                        {{ budget_ranges.range1 or 0 }},
+                        {{ budget_ranges.range2 or 0 }},
+                        {{ budget_ranges.range3 or 0 }},
+                        {{ budget_ranges.range4 or 0 }},
+                        {{ budget_ranges.range5 or 0 }}
+                    ],
+                    backgroundColor: 'rgba(75, 192, 192, 0.7)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            precision: 0
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}
+{% endblock %} 

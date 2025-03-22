@@ -1,0 +1,270 @@
+{% extends "layout.html" %}
+
+{% block title %}Meal Details{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h1>Meal Details</h1>
+        <div>
+            <a href="{{ url_for('admin.meals') }}" class="btn btn-outline-secondary">
+                <i class="fas fa-arrow-left"></i> Back to Meals
+            </a>
+        </div>
+    </div>
+
+    <div class="row">
+        <!-- Meal Info Card -->
+        <div class="col-md-4 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <h5 class="mb-0">Meal Information</h5>
+                </div>
+                <div class="card-body">
+                    <h3 class="card-title text-center mb-3">{{ meal.name }}</h3>
+                    
+                    <div class="text-center mb-4">
+                        <span class="badge bg-{{ meal.meal_type|lower }} fs-6">{{ meal.meal_type }}</span>
+                        <span class="badge bg-info fs-6 ms-2">KES {{ meal.budget }}</span>
+                    </div>
+                    
+                    {% if meal.description %}
+                    <div class="mb-4">
+                        <h6 class="fw-bold">Description</h6>
+                        <p>{{ meal.description }}</p>
+                    </div>
+                    {% endif %}
+                    
+                    <ul class="list-group list-group-flush">
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Meal ID:</span>
+                            <span>{{ meal.id }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>User:</span>
+                            <span>
+                                <a href="{{ url_for('admin.user_details', user_id=meal.user.id) }}">
+                                    {{ meal.user.username }}
+                                </a>
+                            </span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Created:</span>
+                            <span>{{ meal.date_created.strftime('%Y-%m-%d %H:%M') }}</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between">
+                            <span>Price:</span>
+                            <span>KES {{ meal.price or meal.budget }}</span>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-footer">
+                    <button type="button" class="btn btn-outline-danger btn-sm w-100" data-bs-toggle="modal" data-bs-target="#deleteMealModal">
+                        <i class="fas fa-trash"></i> Delete Meal
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Meal Details Card -->
+        <div class="col-md-8 mb-4">
+            <div class="card h-100">
+                <div class="card-header bg-light">
+                    <ul class="nav nav-tabs card-header-tabs" id="mealDetailsTabs" role="tablist">
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link active" id="ingredients-tab" data-bs-toggle="tab" data-bs-target="#ingredients" type="button" role="tab" aria-controls="ingredients" aria-selected="true">
+                                Ingredients
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="nutrition-tab" data-bs-toggle="tab" data-bs-target="#nutrition" type="button" role="tab" aria-controls="nutrition" aria-selected="false">
+                                Nutrition
+                            </button>
+                        </li>
+                        <li class="nav-item" role="presentation">
+                            <button class="nav-link" id="preferences-tab" data-bs-toggle="tab" data-bs-target="#preferences" type="button" role="tab" aria-controls="preferences" aria-selected="false">
+                                Preferences
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <div class="card-body">
+                    <div class="tab-content" id="mealDetailsTabContent">
+                        <!-- Ingredients Tab -->
+                        <div class="tab-pane fade show active" id="ingredients" role="tabpanel" aria-labelledby="ingredients-tab">
+                            {% if meal.ingredients %}
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h5 class="mb-3">Ingredients List</h5>
+                                    <ul class="list-group">
+                                        {% for ingredient in meal.ingredients %}
+                                        <li class="list-group-item d-flex justify-content-between align-items-center">
+                                            {{ ingredient }}
+                                            <span class="badge bg-primary rounded-pill">{{ loop.index }}</span>
+                                        </li>
+                                        {% endfor %}
+                                    </ul>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info text-center" role="alert">
+                                No ingredient information available for this meal.
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Nutrition Tab -->
+                        <div class="tab-pane fade" id="nutrition" role="tabpanel" aria-labelledby="nutrition-tab">
+                            {% if meal.nutrition %}
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Nutrition Summary</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Calories:</span>
+                                                <span class="fw-bold">{{ meal.nutrition.calories }} kcal</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Protein:</span>
+                                                <span class="fw-bold">{{ meal.nutrition.protein }}g</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Carbohydrates:</span>
+                                                <span class="fw-bold">{{ meal.nutrition.carbs }}g</span>
+                                            </div>
+                                            <div class="d-flex justify-content-between mb-2">
+                                                <span>Fat:</span>
+                                                <span class="fw-bold">{{ meal.nutrition.fat }}g</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-light">
+                                            <h6 class="mb-0">Nutrition Chart</h6>
+                                        </div>
+                                        <div class="card-body">
+                                            <canvas id="nutritionChart" height="200"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info text-center" role="alert">
+                                No nutrition information available for this meal.
+                            </div>
+                            {% endif %}
+                        </div>
+                        
+                        <!-- Preferences Tab -->
+                        <div class="tab-pane fade" id="preferences" role="tabpanel" aria-labelledby="preferences-tab">
+                            {% if meal.preferences %}
+                            <div class="row">
+                                <div class="col-md-12">
+                                    <h5 class="mb-3">User Preferences</h5>
+                                    <div class="d-flex flex-wrap">
+                                        {% for preference in meal.preferences %}
+                                        <span class="badge bg-secondary me-2 mb-2 py-2 px-3">{{ preference }}</span>
+                                        {% endfor %}
+                                    </div>
+                                </div>
+                            </div>
+                            {% else %}
+                            <div class="alert alert-info text-center" role="alert">
+                                No preference information available for this meal.
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Meal Modal -->
+<div class="modal fade" id="deleteMealModal" tabindex="-1" aria-labelledby="deleteMealModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="deleteMealModalLabel">Confirm Deletion</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>Are you sure you want to delete meal "{{ meal.name }}"?</p>
+                <p class="text-danger"><strong>Warning:</strong> This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <form method="POST" action="{{ url_for('admin.delete_meal', meal_id=meal.id) }}">
+                    <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                    <button type="submit" class="btn btn-danger">Delete Meal</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Setup nutrition chart if the nutrition tab exists
+        if (document.getElementById('nutritionChart') && {{ meal.nutrition|tojson|safe }}) {
+            setupNutritionChart();
+        }
+    });
+    
+    function setupNutritionChart() {
+        const ctx = document.getElementById('nutritionChart');
+        const nutrition = {{ meal.nutrition|tojson|safe }};
+        
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Protein', 'Carbs', 'Fat'],
+                datasets: [{
+                    data: [
+                        nutrition.protein,
+                        nutrition.carbs,
+                        nutrition.fat
+                    ],
+                    backgroundColor: [
+                        'rgba(54, 162, 235, 0.7)',
+                        'rgba(255, 206, 86, 0.7)',
+                        'rgba(255, 99, 132, 0.7)'
+                    ],
+                    borderColor: [
+                        'rgba(54, 162, 235, 1)',
+                        'rgba(255, 206, 86, 1)',
+                        'rgba(255, 99, 132, 1)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.raw || 0;
+                                return `${label}: ${value}g`;
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}
+{% endblock %} 
