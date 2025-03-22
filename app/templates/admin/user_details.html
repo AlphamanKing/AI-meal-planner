@@ -121,9 +121,9 @@
                                     <tbody>
                                         {% for meal in user_meals %}
                                         <tr>
-                                            <td>{{ meal.name }}</td>
+                                            <td>{{ meal.meal_name }}</td>
                                             <td>
-                                                <span class="badge bg-{{ meal.meal_type|lower }}">
+                                                <span class="badge bg-{{ meal_type_colors[meal.meal_type] | default('secondary') }}">
                                                     {{ meal.meal_type }}
                                                 </span>
                                             </td>
@@ -274,19 +274,19 @@
                 labels: ['Breakfast', 'Lunch', 'Supper'],
                 datasets: [{
                     data: [
-                        {{ meal_type_stats.breakfast or 0 }},
-                        {{ meal_type_stats.lunch or 0 }},
-                        {{ meal_type_stats.supper or 0 }}
+                        {{ meal_type_stats.get('breakfast', 0) }},
+                        {{ meal_type_stats.get('lunch', 0) }},
+                        {{ meal_type_stats.get('supper', 0) }}
                     ],
                     backgroundColor: [
-                        'rgba(255, 99, 132, 0.7)',
-                        'rgba(54, 162, 235, 0.7)',
-                        'rgba(255, 206, 86, 0.7)'
+                        'rgba(0, 123, 255, 0.7)',  // primary - blue for Breakfast
+                        'rgba(40, 167, 69, 0.7)',  // success - green for Lunch
+                        'rgba(255, 193, 7, 0.7)'   // warning - yellow for Supper
                     ],
                     borderColor: [
-                        'rgba(255, 99, 132, 1)',
-                        'rgba(54, 162, 235, 1)',
-                        'rgba(255, 206, 86, 1)'
+                        'rgba(0, 123, 255, 1)',    // primary - blue for Breakfast
+                        'rgba(40, 167, 69, 1)',    // success - green for Lunch
+                        'rgba(255, 193, 7, 1)'     // warning - yellow for Supper
                     ],
                     borderWidth: 1
                 }]

@@ -29,12 +29,23 @@ def generate_meal_plans(meal_type, budget, preferences=None):
             "Content-Type": "application/json"
         }
         
-        prompt = f"""Generate 3 affordable meal suggestions for {meal_type} within a budget of KES {budget}.
+        # Make preferences more prominent in the prompt
+        preferences_text = ""
+        if preferences and preferences.strip():
+            preferences_text = f"""
+            CRITICAL: The user has specified these preferences: "{preferences}"
+            You MUST honor these preferences in ALL meal suggestions.
+            Do not suggest meals that conflict with these preferences.
+            """
         
-        {f'Consider these preferences: {preferences}' if preferences else ''}
+        prompt = f"""Generate EXACTLY 3 affordable meal suggestions for {meal_type} within a budget of KES {budget}.
+        
+        {preferences_text}
 
         IMPORTANT GUIDELINES:
-        1. Use REALISTIC PRICING for Kenyan ingredients. Here are some reference prices:
+        1. You MUST generate EXACTLY 3 different meal options, no more and no less.
+        
+        2. Use REALISTIC PRICING for Kenyan ingredients. Here are some reference prices:
            - Single egg: 15 KES
            - Loaf of bread: 60 KES
            - 1 cup of rice: 35 KES
@@ -46,15 +57,15 @@ def generate_meal_plans(meal_type, budget, preferences=None):
            - 1 cup flour (maize/wheat): 30 KES
            - Cooking oil (tablespoon): 10 KES
         
-        2. USE THE FULL BUDGET effectively. The total cost should be between 70% and 95% of the budget (KES {budget}).
+        3. USE THE FULL BUDGET effectively. The total cost should be between 70% and 95% of the budget (KES {budget}).
         
-        3. For each meal suggestion, include:
+        4. For each meal suggestion, include:
            - A name for the meal
            - A descriptive paragraph (minimum 30 words)
            - A list of ingredients with SPECIFIC AMOUNTS and costs in KES
            - Step-by-step cooking instructions
            - Total estimated cost (sum of ingredients)
-           - Nutritional information (calories, protein, carbs, fat) WITH UNITS
+           - Nutritional information (calories, protein, carbs, fat) WITH PERCENTAGES (0-100%)
         
         Format as valid JSON with this structure:
         [
@@ -68,13 +79,14 @@ def generate_meal_plans(meal_type, budget, preferences=None):
             "total_cost": total_cost_in_kes,
             "nutritional_info": {{
                 "calories": "value kcal",
-                "protein": "value g",
-                "carbs": "value g",
-                "fat": "value g"
+                "protein": percentage_value,
+                "carbs": percentage_value,
+                "fat": percentage_value
             }}
           }}
         ]
         
+        The JSON MUST contain EXACTLY 3 meal options - if you return fewer or more than 3, your response will be rejected.
         Return ONLY a valid JSON array with no additional text.
         """
         
@@ -110,33 +122,43 @@ def generate_meal_plans(meal_type, budget, preferences=None):
                             # Parse the JSON
                             meal_plans = json.loads(json_str)
                             
-                            # Ensure nutritional info values have units and create numeric versions
+                            # Ensure we have exactly 3 meal options
+                            if len(meal_plans) != 3:
+                                print(f"API returned {len(meal_plans)} meal options instead of 3, falling back to mock data")
+                                return generate_mock_meal_plans(meal_type, budget, preferences)
+                            
+                            # Ensure nutritional info values are proper percentages
                             for meal in meal_plans:
                                 if 'nutritional_info' in meal:
-                                    # Create a clean version for numeric operations but preserve the display values
-                                    numeric_info = {}
-                                    for key, value in meal['nutritional_info'].items():
-                                        if isinstance(value, str):
-                                            # Extract numeric part if value has units (like "5g")
-                                            numeric_value = re.match(r'(\d+(?:\.\d+)?)', value)
-                                            if numeric_value:
-                                                numeric_info[key] = float(numeric_value.group(1))
-                                        elif isinstance(value, (int, float)):
-                                            # If it's already a number, use default units
-                                            if key == 'calories':
-                                                meal['nutritional_info'][key] = f"{value} kcal"
-                                            else:
-                                                meal['nutritional_info'][key] = f"{value} g"
-                                            numeric_info[key] = value
+                                    nutrition = meal['nutritional_info']
                                     
-                                    # Add numeric values for calculations if needed
-                                    meal['numeric_nutritional_info'] = numeric_info
+                                    # Make sure protein, carbs and fat are percentages (0-100)
+                                    for key in ['protein', 'carbs', 'fat']:
+                                        if key in nutrition:
+                                            value = nutrition[key]
+                                            
+                                            # Convert to number if it's a string
+                                            if isinstance(value, str):
+                                                # Extract numeric part
+                                                numeric_value = re.match(r'(\d+(?:\.\d+)?)', value)
+                                                if numeric_value:
+                                                    value = float(numeric_value.group(1))
+                                                else:
+                                                    # Default percentage if parsing fails
+                                                    value = 25  # Set a reasonable default
+                                            
+                                            # Ensure it's a percentage (0-100)
+                                            if isinstance(value, (int, float)):
+                                                # If value is too large to be a percentage (e.g., in grams), convert it
+                                                if value > 100:
+                                                    value = min(100, value / 3)  # Simple conversion
+                                                
+                                                # Store as number for the progress bar to work properly
+                                                nutrition[key] = value
                             
                             return meal_plans
                         else:
-                            # If no JSON array found, try to find any JSON-like structure
-                            print(f"Failed to extract JSON array, attempting to parse full content")
-                            # Remove any text before and after JSON
+                            # Try to parse the full content as JSON
                             content = content.strip()
                             if content.startswith("```json"):
                                 content = content.replace("```json", "", 1)
@@ -148,55 +170,67 @@ def generate_meal_plans(meal_type, budget, preferences=None):
                             content = content.strip()
                             meal_plans = json.loads(content)
                             
-                            # Ensure nutritional info values have units
-                            if isinstance(meal_plans, list):
-                                for meal in meal_plans:
-                                    if 'nutritional_info' in meal:
-                                        # Create a clean version for numeric operations but preserve the display values
-                                        numeric_info = {}
-                                        for key, value in meal['nutritional_info'].items():
+                            # Ensure we have exactly 3 meal options
+                            if not isinstance(meal_plans, list) or len(meal_plans) != 3:
+                                print(f"API returned {len(meal_plans) if isinstance(meal_plans, list) else 'invalid'} data, falling back to mock data")
+                                return generate_mock_meal_plans(meal_type, budget, preferences)
+                            
+                            # Process nutritional info
+                            for meal in meal_plans:
+                                if 'nutritional_info' in meal:
+                                    nutrition = meal['nutritional_info']
+                                    
+                                    # Make sure protein, carbs and fat are percentages (0-100)
+                                    for key in ['protein', 'carbs', 'fat']:
+                                        if key in nutrition:
+                                            value = nutrition[key]
+                                            
+                                            # Convert to number if it's a string
                                             if isinstance(value, str):
-                                                # Extract numeric part if value has units (like "5g")
+                                                # Extract numeric part
                                                 numeric_value = re.match(r'(\d+(?:\.\d+)?)', value)
                                                 if numeric_value:
-                                                    numeric_info[key] = float(numeric_value.group(1))
-                                            elif isinstance(value, (int, float)):
-                                                # If it's already a number, use default units
-                                                if key == 'calories':
-                                                    meal['nutritional_info'][key] = f"{value} kcal"
+                                                    value = float(numeric_value.group(1))
                                                 else:
-                                                    meal['nutritional_info'][key] = f"{value} g"
-                                                numeric_info[key] = value
-                                        
-                                        # Add numeric values for calculations if needed
-                                        meal['numeric_nutritional_info'] = numeric_info
+                                                    # Default percentage if parsing fails
+                                                    value = 25  # Set a reasonable default
+                                            
+                                            # Ensure it's a percentage (0-100)
+                                            if isinstance(value, (int, float)):
+                                                # If value is too large to be a percentage (e.g., in grams), convert it
+                                                if value > 100:
+                                                    value = min(100, value / 3)  # Simple conversion
+                                                
+                                                # Store as number for the progress bar to work properly
+                                                nutrition[key] = value
                             
                             return meal_plans
                     except json.JSONDecodeError as e:
                         print(f"Error decoding JSON: {content}")
                         # Return mock data as fallback
-                        return generate_mock_meal_plans(meal_type, budget)
+                        return generate_mock_meal_plans(meal_type, budget, preferences)
                 elif response.status_code == 429:  # Rate limit error
                     retries += 1
                     time.sleep(2 ** retries)  # Exponential backoff
                 else:
                     print(f"API Error: {response.status_code} - {response.text}")
-                    return generate_mock_meal_plans(meal_type, budget)
+                    return generate_mock_meal_plans(meal_type, budget, preferences)
             except requests.exceptions.RequestException as e:
                 print(f"Request error: {str(e)}")
                 retries += 1
                 time.sleep(2 ** retries)  # Exponential backoff
         
-        return generate_mock_meal_plans(meal_type, budget)  # Return mock data if all retries fail
+        return generate_mock_meal_plans(meal_type, budget, preferences)  # Return mock data if all retries fail
     except Exception as e:
         print(f"Error generating meal plans: {str(e)}")
-        return generate_mock_meal_plans(meal_type, budget)  # Return mock data on any error
+        return generate_mock_meal_plans(meal_type, budget, preferences)  # Return mock data on any error
 
-def generate_mock_meal_plans(meal_type, budget):
+def generate_mock_meal_plans(meal_type, budget, preferences=None):
     """Generate mock meal plans when API fails"""
     budget_float = float(budget)
     target_cost = budget_float * 0.8  # Target 80% of the budget
     
+    # Create an array of 3 meal plans for all meal types
     if meal_type == "Breakfast":
         return [
             {
@@ -218,15 +252,9 @@ def generate_mock_meal_plans(meal_type, budget):
                 "total_cost": 61.0,
                 "nutritional_info": {
                     "calories": "320 kcal",
-                    "protein": "16 g",
-                    "carbs": "28 g",
-                    "fat": "18 g"
-                },
-                "numeric_nutritional_info": {
-                    "calories": 320,
-                    "protein": 16,
-                    "carbs": 28,
-                    "fat": 18
+                    "protein": 40,
+                    "carbs": 35,
+                    "fat": 25
                 }
             },
             {
@@ -248,15 +276,32 @@ def generate_mock_meal_plans(meal_type, budget):
                 "total_cost": 45.0,
                 "nutritional_info": {
                     "calories": "220 kcal",
-                    "protein": "5 g",
-                    "carbs": "45 g",
-                    "fat": "2 g"
-                },
-                "numeric_nutritional_info": {
-                    "calories": 220,
-                    "protein": 5,
-                    "carbs": 45,
-                    "fat": 2
+                    "protein": 15,
+                    "carbs": 80,
+                    "fat": 5
+                }
+            },
+            {
+                "name": "Fruit and Yogurt Bowl",
+                "description": "A refreshing and nutritious breakfast bowl with yogurt and seasonal fruits. This light yet satisfying option provides probiotics from yogurt and essential vitamins from fruits, giving you a healthy start to your day.",
+                "ingredients": [
+                    {"name": "Plain yogurt", "amount": "1 cup", "cost": 40.0},
+                    {"name": "Banana", "amount": "1 medium", "cost": 15.0},
+                    {"name": "Seasonal fruits", "amount": "1/2 cup chopped", "cost": 20.0},
+                    {"name": "Honey", "amount": "1 tablespoon", "cost": 10.0}
+                ],
+                "instructions": [
+                    "Pour yogurt into a bowl",
+                    "Slice banana and add to the bowl",
+                    "Add chopped seasonal fruits",
+                    "Drizzle with honey and serve immediately"
+                ],
+                "total_cost": 85.0,
+                "nutritional_info": {
+                    "calories": "280 kcal",
+                    "protein": 20,
+                    "carbs": 60,
+                    "fat": 10
                 }
             }
         ]
@@ -285,15 +330,64 @@ def generate_mock_meal_plans(meal_type, budget):
                 "total_cost": 106.0,
                 "nutritional_info": {
                     "calories": "480 kcal",
-                    "protein": "12 g",
-                    "carbs": "80 g",
-                    "fat": "8 g"
-                },
-                "numeric_nutritional_info": {
-                    "calories": 480,
-                    "protein": 12,
-                    "carbs": 80,
-                    "fat": 8
+                    "protein": 15,
+                    "carbs": 75,
+                    "fat": 10
+                }
+            },
+            {
+                "name": "Rice and Bean Stew",
+                "description": "A hearty combination of fluffy rice and protein-rich bean stew that makes for a satisfying lunch. The beans provide plant-based protein while the aromatic rice creates a complete meal that will keep you full throughout the afternoon.",
+                "ingredients": [
+                    {"name": "Rice", "amount": "1 cup", "cost": 35.0},
+                    {"name": "Beans", "amount": "1/2 cup", "cost": 20.0},
+                    {"name": "Onion", "amount": "1 medium", "cost": 15.0},
+                    {"name": "Tomatoes", "amount": "2 medium", "cost": 30.0},
+                    {"name": "Cooking oil", "amount": "1 tablespoon", "cost": 10.0},
+                    {"name": "Salt", "amount": "to taste", "cost": 1.0},
+                    {"name": "Spices", "amount": "to taste", "cost": 5.0}
+                ],
+                "instructions": [
+                    "Boil beans until soft (or use pre-cooked beans)",
+                    "In a separate pot, cook rice until fluffy",
+                    "In a pan, heat oil and sauté onions until translucent",
+                    "Add chopped tomatoes and spices and cook until soft",
+                    "Add beans and simmer for 10 minutes",
+                    "Serve bean stew over rice"
+                ],
+                "total_cost": 116.0,
+                "nutritional_info": {
+                    "calories": "450 kcal",
+                    "protein": 20,
+                    "carbs": 70,
+                    "fat": 10
+                }
+            },
+            {
+                "name": "Vegetable Chapati Wrap",
+                "description": "A flavorful wrap made with homemade chapati and fresh vegetables. This versatile lunch option is easy to customize, portable, and combines the softness of freshly made chapati with crunchy vegetables for a textural delight.",
+                "ingredients": [
+                    {"name": "Wheat flour", "amount": "1 cup", "cost": 25.0},
+                    {"name": "Cooking oil", "amount": "2 tablespoons", "cost": 20.0},
+                    {"name": "Carrots", "amount": "1 medium", "cost": 10.0},
+                    {"name": "Cabbage", "amount": "1/4 head", "cost": 15.0},
+                    {"name": "Onion", "amount": "1 small", "cost": 10.0},
+                    {"name": "Salt", "amount": "to taste", "cost": 1.0}
+                ],
+                "instructions": [
+                    "Mix flour, salt, and water to make chapati dough",
+                    "Divide into balls and roll into flat circles",
+                    "Cook chapatis on a hot pan until golden brown spots appear",
+                    "Grate carrots and shred cabbage finely",
+                    "Slice onion thinly and mix with vegetables",
+                    "Place vegetables on chapati, roll up and serve"
+                ],
+                "total_cost": 81.0,
+                "nutritional_info": {
+                    "calories": "350 kcal",
+                    "protein": 10,
+                    "carbs": 55,
+                    "fat": 35
                 }
             }
         ]
@@ -324,15 +418,68 @@ def generate_mock_meal_plans(meal_type, budget):
                 "total_cost": 106.0,
                 "nutritional_info": {
                     "calories": "520 kcal",
-                    "protein": "18 g",
-                    "carbs": "90 g",
-                    "fat": "7 g"
-                },
-                "numeric_nutritional_info": {
-                    "calories": 520,
-                    "protein": 18,
-                    "carbs": 90,
-                    "fat": 7
+                    "protein": 22,
+                    "carbs": 68,
+                    "fat": 10
+                }
+            },
+            {
+                "name": "Spaghetti with Vegetable Sauce",
+                "description": "A comforting pasta dish with a rich vegetable sauce perfect for dinner. The sauce combines fresh vegetables and herbs for a nutritious and satisfying meal that's both economical and delicious.",
+                "ingredients": [
+                    {"name": "Spaghetti", "amount": "250g", "cost": 40.0},
+                    {"name": "Tomatoes", "amount": "3 large", "cost": 45.0},
+                    {"name": "Onion", "amount": "1 large", "cost": 15.0},
+                    {"name": "Carrots", "amount": "1 medium", "cost": 10.0},
+                    {"name": "Cooking oil", "amount": "2 tablespoons", "cost": 20.0},
+                    {"name": "Salt", "amount": "to taste", "cost": 1.0}
+                ],
+                "instructions": [
+                    "Boil spaghetti in salted water until al dente",
+                    "Chop tomatoes, onion, and grate carrots",
+                    "Heat oil in a pan and sauté onions until translucent",
+                    "Add tomatoes and carrots and cook until soft",
+                    "Season the sauce with salt",
+                    "Drain pasta and mix with the sauce",
+                    "Serve hot"
+                ],
+                "total_cost": 131.0,
+                "nutritional_info": {
+                    "calories": "450 kcal",
+                    "protein": 12,
+                    "carbs": 75,
+                    "fat": 13
+                }
+            },
+            {
+                "name": "Chapati and Beef Stew",
+                "description": "A hearty dinner combining soft chapati with rich beef stew. This classic Kenyan combination offers tender pieces of beef slow-cooked with vegetables in a flavorful broth, paired with freshly made chapati.",
+                "ingredients": [
+                    {"name": "Wheat flour", "amount": "2 cups", "cost": 50.0},
+                    {"name": "Beef", "amount": "250g", "cost": 150.0},
+                    {"name": "Potatoes", "amount": "2 medium", "cost": 30.0},
+                    {"name": "Carrots", "amount": "1 medium", "cost": 10.0},
+                    {"name": "Onion", "amount": "1 large", "cost": 15.0},
+                    {"name": "Tomatoes", "amount": "2 medium", "cost": 30.0},
+                    {"name": "Cooking oil", "amount": "3 tablespoons", "cost": 30.0},
+                    {"name": "Salt", "amount": "to taste", "cost": 1.0}
+                ],
+                "instructions": [
+                    "Mix flour, salt, and water to make chapati dough and set aside",
+                    "Cut beef into small pieces and boil until tender",
+                    "In a pan, heat oil and sauté onions until golden",
+                    "Add tomatoes and cook until soft",
+                    "Add carrots, potatoes, and beef with some of the broth",
+                    "Simmer until vegetables are tender and sauce thickens",
+                    "Roll chapati dough into circles and cook on a hot pan",
+                    "Serve chapati with beef stew"
+                ],
+                "total_cost": 316.0,
+                "nutritional_info": {
+                    "calories": "680 kcal",
+                    "protein": 35,
+                    "carbs": 50,
+                    "fat": 15
                 }
             }
         ] 

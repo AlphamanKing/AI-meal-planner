@@ -239,21 +239,77 @@
             
             // Add nutritional info
             if (meal.nutritional_info && Object.keys(meal.nutritional_info).length > 0) {
+                // Create a more visual representation for protein, carbs, and fat
+                const nutrientKeys = ['calories', 'protein', 'carbs', 'fat'];
+                const nutrientColors = {
+                    'protein': 'success',
+                    'carbs': 'warning',
+                    'fat': 'danger',
+                    'calories': 'info'
+                };
+                
+                for (const key of nutrientKeys) {
+                    if (meal.nutritional_info.hasOwnProperty(key)) {
+                        const value = meal.nutritional_info[key];
+                        const div = document.createElement('div');
+                        div.className = 'mb-3';
+                        
+                        // Add label with value
+                        const labelRow = document.createElement('div');
+                        labelRow.className = 'd-flex justify-content-between align-items-center mb-1';
+                        
+                        const label = document.createElement('span');
+                        label.className = 'fw-bold';
+                        label.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+                        
+                        const valueSpan = document.createElement('span');
+                        valueSpan.className = 'badge bg-' + (nutrientColors[key] || 'secondary');
+                        valueSpan.textContent = key === 'calories' ? value : value + '%';
+                        
+                        labelRow.appendChild(label);
+                        labelRow.appendChild(valueSpan);
+                        div.appendChild(labelRow);
+                        
+                        // Add progress bar for everything except calories
+                        if (key !== 'calories') {
+                            const progressDiv = document.createElement('div');
+                            progressDiv.className = 'progress';
+                            progressDiv.style.height = '10px';
+                            
+                            const progressBar = document.createElement('div');
+                            progressBar.className = 'progress-bar bg-' + nutrientColors[key];
+                            progressBar.style.width = value + '%';
+                            progressBar.setAttribute('role', 'progressbar');
+                            progressBar.setAttribute('aria-valuenow', value);
+                            progressBar.setAttribute('aria-valuemin', '0');
+                            progressBar.setAttribute('aria-valuemax', '100');
+                            
+                            progressDiv.appendChild(progressBar);
+                            div.appendChild(progressDiv);
+                        }
+                        
+                        nutritionalInfo.appendChild(div);
+                    }
+                }
+                
+                // Add any remaining nutritional info
                 for (const [key, value] of Object.entries(meal.nutritional_info)) {
-                    const div = document.createElement('div');
-                    div.className = 'nutrient-info';
-                    
-                    const label = document.createElement('span');
-                    label.className = 'label';
-                    label.textContent = key.charAt(0).toUpperCase() + key.slice(1);
-                    
-                    const valueSpan = document.createElement('span');
-                    valueSpan.textContent = value;
-                    
-                    div.appendChild(label);
-                    div.appendChild(valueSpan);
-                    
-                    nutritionalInfo.appendChild(div);
+                    if (!nutrientKeys.includes(key)) {
+                        const div = document.createElement('div');
+                        div.className = 'nutrient-info';
+                        
+                        const label = document.createElement('span');
+                        label.className = 'label';
+                        label.textContent = key.charAt(0).toUpperCase() + key.slice(1);
+                        
+                        const valueSpan = document.createElement('span');
+                        valueSpan.textContent = value;
+                        
+                        div.appendChild(label);
+                        div.appendChild(valueSpan);
+                        
+                        nutritionalInfo.appendChild(div);
+                    }
                 }
             } else {
                 nutritionalInfo.textContent = 'No nutritional information available.';

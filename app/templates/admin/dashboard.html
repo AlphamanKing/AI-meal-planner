@@ -125,7 +125,7 @@
                                     <td>{{ meal.user.username }}</td>
                                     <td>{{ meal.meal_name }}</td>
                                     <td>
-                                        <span class="badge bg-{{ meal.meal_type | lower }}">
+                                        <span class="badge bg-{{ meal_type_colors[meal.meal_type] | default('secondary') }}">
                                             {{ meal.meal_type }}
                                         </span>
                                     </td>

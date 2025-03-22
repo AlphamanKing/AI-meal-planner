@@ -56,6 +56,18 @@ def dashboard():
         func.count(MealHistory.id).label('count')
     ).group_by(MealHistory.meal_type).order_by(desc('count')).all()
     
+    # Convert to dictionary for easier template access
+    meal_type_dict = {}
+    for meal_type, count in meal_type_counts:
+        meal_type_dict[meal_type] = count
+    
+    # Define standard meal type colors for the UI 
+    meal_type_colors = {
+        'Breakfast': 'primary',
+        'Lunch': 'success',
+        'Supper': 'warning'
+    }
+    
     return render_template('admin/dashboard.html',
                           title='Admin Dashboard',
                           total_users=total_users,
@@ -65,7 +77,8 @@ def dashboard():
                           recent_users=recent_users,
                           recent_meals=recent_meals,
                           avg_budget=round(avg_budget, 2),
-                          meal_type_counts=meal_type_counts)
+                          meal_type_counts=meal_type_dict,
+                          meal_type_colors=meal_type_colors)
 
 @admin_bp.route('/users')
 @admin_required
@@ -231,6 +244,13 @@ def user_details(user_id):
         budget_time['labels'].append(meal.date_selected.strftime('%Y-%m-%d'))
         budget_time['data'].append(meal.budget)
     
+    # Define standard meal type colors for the UI 
+    meal_type_colors = {
+        'Breakfast': 'primary',
+        'Lunch': 'success',
+        'Supper': 'warning'
+    }
+    
     return render_template('admin/user_details.html',
                           title=f'User Details - {user.username}',
                           user=user,
@@ -238,7 +258,8 @@ def user_details(user_id):
                           user_stats=user_stats,
                           meal_type_stats=meal_type_stats,
                           monthly_activity=monthly_activity,
-                          budget_time=budget_time)
+                          budget_time=budget_time,
+                          meal_type_colors=meal_type_colors)
 
 @admin_bp.route('/toggle-admin/<int:user_id>', methods=['POST'])
 @admin_required
@@ -290,8 +311,48 @@ def meals():
             start_of_month = today.replace(day=1)
             query = query.filter(MealHistory.date_selected >= start_of_month)
     
+    # Get meal type counts for statistics
+    meal_type_counts_query = db.session.query(
+        MealHistory.meal_type, 
+        func.count(MealHistory.id).label('count')
+    ).group_by(MealHistory.meal_type).all()
+    
+    meal_type_counts = {}
+    for meal_type, count in meal_type_counts_query:
+        meal_type_counts[meal_type] = count
+    
     # Execute paginated query
     paginated_meals = query.order_by(MealHistory.date_selected.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    # Define standard meal type colors for the UI 
+    meal_type_colors = {
+        'Breakfast': 'primary',
+        'Lunch': 'success',
+        'Supper': 'warning'
+    }
+    
+    # Calculate budget ranges for chart
+    budget_ranges = {
+        'range1': 0,  # 0-100
+        'range2': 0,  # 101-200
+        'range3': 0,  # 201-300
+        'range4': 0,  # 301-400
+        'range5': 0   # 401+
+    }
+    
+    # Query all budgets to calculate ranges
+    all_budgets = db.session.query(MealHistory.budget).all()
+    for (budget,) in all_budgets:
+        if budget <= 100:
+            budget_ranges['range1'] += 1
+        elif budget <= 200:
+            budget_ranges['range2'] += 1
+        elif budget <= 300:
+            budget_ranges['range3'] += 1
+        elif budget <= 400:
+            budget_ranges['range4'] += 1
+        else:
+            budget_ranges['range5'] += 1
     
     return render_template('admin/meals.html', 
                           title='Manage Meals', 
@@ -300,7 +361,10 @@ def meals():
                           current_page=page,
                           total_pages=paginated_meals.pages,
                           prev_page=paginated_meals.prev_num if paginated_meals.has_prev else None,
-                          next_page=paginated_meals.next_num if paginated_meals.has_next else None)
+                          next_page=paginated_meals.next_num if paginated_meals.has_next else None,
+                          meal_type_counts=meal_type_counts,
+                          meal_type_colors=meal_type_colors,
+                          budget_ranges=budget_ranges)
 
 @admin_bp.route('/meals/add', methods=['GET', 'POST'])
 @admin_required
@@ -373,7 +437,7 @@ def edit_meal(meal_id):
 @admin_bp.route('/meals/delete/<int:meal_id>', methods=['POST'])
 @admin_required
 def delete_meal(meal_id):
-    meal = Meal.query.get_or_404(meal_id)
+    meal = MealHistory.query.get_or_404(meal_id)
     
     try:
         db.session.delete(meal)
