@@ -18,6 +18,8 @@
     <!-- Dark Mode CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/dark-mode.css') }}" id="dark-mode-styles">
     
+    <link rel="shortcut icon" href="{{ url_for('static', filename='favicon.ico') }}">
+    
     {% block head %}{% endblock %}
 </head>
 <body>
@@ -185,4 +187,4 @@
     
     {% block scripts %}{% endblock %}
 </body>
-</html> 
+</html>
