@@ -20,6 +20,26 @@ class RegistrationForm(FlaskForm):
         if user:
             raise ValidationError('Email is already registered. Please use a different one.')
 
+class UpdateAccountForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=3, max=20)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    password = PasswordField('Password', validators=[Length(min=6)])
+    confirm_password = PasswordField('Confirm Password', validators=[EqualTo('password')])
+    is_admin = BooleanField('Admin Privileges')
+    submit = SubmitField('Update')
+    
+    def validate_username(self, username):
+        from flask_login import current_user
+        user = User.query.filter_by(username=username.data).first()
+        if user and user.id != current_user.id:
+            raise ValidationError('Username is already taken. Please choose another one.')
+    
+    def validate_email(self, email):
+        from flask_login import current_user
+        user = User.query.filter_by(email=email.data).first()
+        if user and user.id != current_user.id:
+            raise ValidationError('Email is already registered. Please use a different one.')
+
 class LoginForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField('Password', validators=[DataRequired()])

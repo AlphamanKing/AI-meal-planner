@@ -22,7 +22,7 @@
             <h5 class="mb-0">Filters</h5>
         </div>
         <div class="card-body">
-            <form method="GET" action="{{ url_for('admin.users') }}" class="row g-3">
+            <form action="{{ url_for('admin.users') }}" method="GET" class="row g-3">
                 <div class="col-md-3">
                     <label for="username" class="form-label">Username</label>
                     <input type="text" class="form-control" id="username" name="username" value="{{ request.args.get('username', '') }}">

@@ -21,7 +21,7 @@
                     <h5 class="mb-0">Meal Information</h5>
                 </div>
                 <div class="card-body">
-                    <h3 class="card-title text-center mb-3">{{ meal.name }}</h3>
+                    <h3 class="card-title text-center mb-3">{{ meal.meal_name }}</h3>
                     
                     <div class="text-center mb-4">
                         <span class="badge bg-{{ meal.meal_type|lower }} fs-6">{{ meal.meal_type }}</span>
@@ -50,7 +50,7 @@
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Created:</span>
-                            <span>{{ meal.date_created.strftime('%Y-%m-%d %H:%M') }}</span>
+                            <span>{{ meal.date_selected.strftime('%Y-%m-%d %H:%M') }}</span>
                         </li>
                         <li class="list-group-item d-flex justify-content-between">
                             <span>Price:</span>
@@ -92,12 +92,12 @@
                     <div class="tab-content" id="mealDetailsTabContent">
                         <!-- Ingredients Tab -->
                         <div class="tab-pane fade show active" id="ingredients" role="tabpanel" aria-labelledby="ingredients-tab">
-                            {% if meal.ingredients %}
+                            {% if ingredients %}
                             <div class="row">
                                 <div class="col-md-12">
                                     <h5 class="mb-3">Ingredients List</h5>
                                     <ul class="list-group">
-                                        {% for ingredient in meal.ingredients %}
+                                        {% for ingredient in ingredients %}
                                         <li class="list-group-item d-flex justify-content-between align-items-center">
                                             {{ ingredient }}
                                             <span class="badge bg-primary rounded-pill">{{ loop.index }}</span>
@@ -115,7 +115,7 @@
                         
                         <!-- Nutrition Tab -->
                         <div class="tab-pane fade" id="nutrition" role="tabpanel" aria-labelledby="nutrition-tab">
-                            {% if meal.nutrition %}
+                            {% if nutritional_data %}
                             <div class="row">
                                 <div class="col-md-6">
                                     <div class="card mb-3">
@@ -125,19 +125,19 @@
                                         <div class="card-body">
                                             <div class="d-flex justify-content-between mb-2">
                                                 <span>Calories:</span>
-                                                <span class="fw-bold">{{ meal.nutrition.calories }} kcal</span>
+                                                <span class="fw-bold">{{ nutritional_data.calories|default('N/A') }} kcal</span>
                                             </div>
                                             <div class="d-flex justify-content-between mb-2">
                                                 <span>Protein:</span>
-                                                <span class="fw-bold">{{ meal.nutrition.protein }}g</span>
+                                                <span class="fw-bold">{{ nutritional_data.protein|default('N/A') }}g</span>
                                             </div>
                                             <div class="d-flex justify-content-between mb-2">
                                                 <span>Carbohydrates:</span>
-                                                <span class="fw-bold">{{ meal.nutrition.carbs }}g</span>
+                                                <span class="fw-bold">{{ nutritional_data.carbs|default('N/A') }}g</span>
                                             </div>
                                             <div class="d-flex justify-content-between mb-2">
                                                 <span>Fat:</span>
-                                                <span class="fw-bold">{{ meal.nutrition.fat }}g</span>
+                                                <span class="fw-bold">{{ nutritional_data.fat|default('N/A') }}g</span>
                                             </div>
                                         </div>
                                     </div>
@@ -195,7 +195,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                <p>Are you sure you want to delete meal "{{ meal.name }}"?</p>
+                <p>Are you sure you want to delete meal "{{ meal.meal_name }}"?</p>
                 <p class="text-danger"><strong>Warning:</strong> This action cannot be undone.</p>
             </div>
             <div class="modal-footer">
@@ -214,14 +214,14 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         // Setup nutrition chart if the nutrition tab exists
-        if (document.getElementById('nutritionChart') && {{ meal.nutrition|tojson|safe }}) {
+        if (document.getElementById('nutritionChart') && {{ nutritional_data|tojson|safe }}) {
             setupNutritionChart();
         }
     });
     
     function setupNutritionChart() {
         const ctx = document.getElementById('nutritionChart');
-        const nutrition = {{ meal.nutrition|tojson|safe }};
+        const nutritionalData = {{ nutritional_data|tojson|safe }};
         
         new Chart(ctx, {
             type: 'doughnut',
@@ -229,9 +229,9 @@
                 labels: ['Protein', 'Carbs', 'Fat'],
                 datasets: [{
                     data: [
-                        nutrition.protein,
-                        nutrition.carbs,
-                        nutrition.fat
+                        nutritionalData.protein || 0,
+                        nutritionalData.carbs || 0,
+                        nutritionalData.fat || 0
                     ],
                     backgroundColor: [
                         'rgba(54, 162, 235, 0.7)',

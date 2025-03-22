@@ -128,7 +128,7 @@
                                                 </span>
                                             </td>
                                             <td>KES {{ meal.budget }}</td>
-                                            <td>{{ meal.date_created.strftime('%Y-%m-%d') }}</td>
+                                            <td>{{ meal.date_selected.strftime('%Y-%m-%d') }}</td>
                                             <td>
                                                 <a href="{{ url_for('admin.meal_details', meal_id=meal.id) }}" class="btn btn-sm btn-outline-primary">
                                                     <i class="fas fa-eye"></i>

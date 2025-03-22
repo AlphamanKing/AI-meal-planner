@@ -81,20 +81,20 @@
                                     {{ meal.user.username }}
                                 </a>
                             </td>
-                            <td>{{ meal.name }}</td>
+                            <td>{{ meal.meal_name }}</td>
                             <td>
                                 <span class="badge bg-{{ meal.meal_type|lower }}">
                                     {{ meal.meal_type }}
                                 </span>
                             </td>
                             <td>KES {{ meal.budget }}</td>
-                            <td>{{ meal.date_created.strftime('%Y-%m-%d %H:%M') }}</td>
+                            <td>{{ meal.date_selected.strftime('%Y-%m-%d %H:%M') }}</td>
                             <td>
                                 <div class="btn-group btn-group-sm" role="group">
                                     <a href="{{ url_for('admin.meal_details', meal_id=meal.id) }}" class="btn btn-outline-primary" title="View Details">
                                         <i class="fas fa-eye"></i>
                                     </a>
-                                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteMealModal" data-meal-id="{{ meal.id }}" data-meal-name="{{ meal.name }}" title="Delete Meal">
+                                    <button type="button" class="btn btn-outline-danger" data-bs-toggle="modal" data-bs-target="#deleteMealModal" data-meal-id="{{ meal.id }}" data-meal-name="{{ meal.meal_name }}" title="Delete Meal">
                                         <i class="fas fa-trash"></i>
                                     </button>
                                 </div>

@@ -3,12 +3,14 @@ from flask_login import login_required, current_user
 from app import db
 from app.models.user import User
 from app.models.meal import Meal, MealHistory
-from app.utils.forms import MealForm
+from app.utils.forms import MealForm, RegistrationForm, UpdateAccountForm
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import func, desc
+from flask_bcrypt import Bcrypt
 
 admin_bp = Blueprint('admin', __name__, url_prefix='/admin')
+bcrypt = Bcrypt()
 
 # Admin access decorator
 def admin_required(f):
@@ -25,10 +27,19 @@ def admin_required(f):
 @admin_required
 def dashboard():
     # Count total users
-    user_count = User.query.count()
+    total_users = User.query.count()
     
     # Count total meals generated
-    meal_count = MealHistory.query.count()
+    total_meal_plans = MealHistory.query.count()
+    
+    # Get today's date at midnight
+    today = datetime.now().date()
+    
+    # Count new users today
+    new_users_today = User.query.filter(func.date(User.date_joined) == today).count()
+    
+    # Count meal plans created today
+    meal_plans_today = MealHistory.query.filter(func.date(MealHistory.date_selected) == today).count()
     
     # Get recent user registrations
     recent_users = User.query.order_by(User.date_joined.desc()).limit(5).all()
@@ -47,8 +58,10 @@ def dashboard():
     
     return render_template('admin/dashboard.html',
                           title='Admin Dashboard',
-                          user_count=user_count,
-                          meal_count=meal_count,
+                          total_users=total_users,
+                          total_meal_plans=total_meal_plans,
+                          new_users_today=new_users_today,
+                          meal_plans_today=meal_plans_today,
                           recent_users=recent_users,
                           recent_meals=recent_meals,
                           avg_budget=round(avg_budget, 2),
@@ -57,8 +70,175 @@ def dashboard():
 @admin_bp.route('/users')
 @admin_required
 def users():
-    users_list = User.query.all()
-    return render_template('admin/users.html', title='Users', users=users_list)
+    page = request.args.get('page', 1, type=int)
+    per_page = 10  # Number of users per page
+    
+    # Apply filters if provided
+    username_filter = request.args.get('username', '')
+    email_filter = request.args.get('email', '')
+    status_filter = request.args.get('status', '')
+    role_filter = request.args.get('role', '')
+    
+    # Start with base query
+    query = User.query
+    
+    # Apply filters
+    if username_filter:
+        query = query.filter(User.username.contains(username_filter))
+    if email_filter:
+        query = query.filter(User.email.contains(email_filter))
+    if status_filter:
+        if status_filter == 'active':
+            query = query.filter(User.is_active == True)
+        elif status_filter == 'inactive':
+            query = query.filter(User.is_active == False)
+    if role_filter:
+        if role_filter == 'admin':
+            query = query.filter(User.is_admin == True)
+        elif role_filter == 'user':
+            query = query.filter(User.is_admin == False)
+    
+    # Execute paginated query
+    paginated_users = query.order_by(User.date_joined.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    return render_template('admin/users.html', 
+                          title='Users', 
+                          users=paginated_users.items,
+                          pagination=paginated_users,
+                          current_page=page,
+                          total_pages=paginated_users.pages,
+                          prev_page=paginated_users.prev_num if paginated_users.has_prev else None,
+                          next_page=paginated_users.next_num if paginated_users.has_next else None)
+
+@admin_bp.route('/users/add', methods=['GET', 'POST'])
+@admin_required
+def add_user():
+    form = RegistrationForm()
+    
+    if form.validate_on_submit():
+        # Hash the password
+        hashed_password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+        
+        # Create new user
+        user = User(
+            username=form.username.data,
+            email=form.email.data,
+            password=hashed_password,
+            is_admin='is_admin' in request.form  # Check if admin checkbox is checked
+        )
+        
+        # Add and commit to database
+        db.session.add(user)
+        db.session.commit()
+        
+        flash(f'User account created for {form.username.data}!', 'success')
+        return redirect(url_for('admin.users'))
+    
+    return render_template('admin/add_user.html', title='Add User', form=form)
+
+@admin_bp.route('/users/edit/<int:user_id>', methods=['GET', 'POST'])
+@admin_required
+def edit_user(user_id):
+    user = User.query.get_or_404(user_id)
+    form = UpdateAccountForm()
+    
+    if form.validate_on_submit():
+        user.username = form.username.data
+        user.email = form.email.data
+        
+        # Check if we're updating the password
+        if form.password.data:
+            user.password = bcrypt.generate_password_hash(form.password.data).decode('utf-8')
+        
+        # Update admin status if not the current user
+        if user.id != current_user.id:
+            user.is_admin = 'is_admin' in request.form
+        
+        db.session.commit()
+        flash('User account has been updated!', 'success')
+        return redirect(url_for('admin.user_details', user_id=user.id))
+    
+    elif request.method == 'GET':
+        form.username.data = user.username
+        form.email.data = user.email
+    
+    return render_template('admin/edit_user.html', title='Edit User', form=form, user=user)
+
+@admin_bp.route('/users/delete/<int:user_id>', methods=['POST'])
+@admin_required
+def delete_user(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    if user.id == current_user.id:
+        flash('You cannot delete your own account!', 'danger')
+        return redirect(url_for('admin.users'))
+    
+    try:
+        # Delete all related meal history
+        MealHistory.query.filter_by(user_id=user.id).delete()
+        
+        # Delete the user
+        db.session.delete(user)
+        db.session.commit()
+        
+        flash(f'User {user.username} has been deleted!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error deleting user: {str(e)}', 'danger')
+    
+    return redirect(url_for('admin.users'))
+
+@admin_bp.route('/users/<int:user_id>')
+@admin_required
+def user_details(user_id):
+    user = User.query.get_or_404(user_id)
+    
+    # Get user's meal history
+    user_meals = MealHistory.query.filter_by(user_id=user_id).order_by(MealHistory.date_selected.desc()).all()
+    
+    # Calculate user statistics
+    user_stats = {
+        'meal_count': len(user_meals),
+        'avg_budget': sum(meal.budget for meal in user_meals) / len(user_meals) if user_meals else 0
+    }
+    
+    # Calculate meal type distribution
+    meal_type_stats = {}
+    for meal in user_meals:
+        meal_type_stats[meal.meal_type.lower()] = meal_type_stats.get(meal.meal_type.lower(), 0) + 1
+    
+    # Get monthly activity data
+    monthly_activity = {
+        'labels': [],
+        'data': []
+    }
+    
+    # Get budget over time data
+    budget_time = {
+        'labels': [],
+        'data': []
+    }
+    
+    for meal in user_meals:
+        date_str = meal.date_selected.strftime('%Y-%m')
+        if date_str not in monthly_activity['labels']:
+            monthly_activity['labels'].append(date_str)
+            monthly_activity['data'].append(1)
+        else:
+            idx = monthly_activity['labels'].index(date_str)
+            monthly_activity['data'][idx] += 1
+            
+        budget_time['labels'].append(meal.date_selected.strftime('%Y-%m-%d'))
+        budget_time['data'].append(meal.budget)
+    
+    return render_template('admin/user_details.html',
+                          title=f'User Details - {user.username}',
+                          user=user,
+                          user_meals=user_meals,
+                          user_stats=user_stats,
+                          meal_type_stats=meal_type_stats,
+                          monthly_activity=monthly_activity,
+                          budget_time=budget_time)
 
 @admin_bp.route('/toggle-admin/<int:user_id>', methods=['POST'])
 @admin_required
@@ -83,8 +263,44 @@ def toggle_admin(user_id):
 @admin_bp.route('/meals')
 @admin_required
 def meals():
-    meals_list = Meal.query.all()
-    return render_template('admin/meals.html', title='Manage Meals', meals=meals_list)
+    page = request.args.get('page', 1, type=int)
+    per_page = 10  # Number of meals per page
+    
+    # Apply filters if provided
+    meal_type_filter = request.args.get('meal_type', '')
+    date_range = request.args.get('date_range', '')
+    
+    # Start with base query
+    query = MealHistory.query
+    
+    # Apply filters
+    if meal_type_filter:
+        query = query.filter(MealHistory.meal_type == meal_type_filter)
+    
+    if date_range:
+        today = datetime.now().date()
+        if date_range == 'today':
+            query = query.filter(func.date(MealHistory.date_selected) == today)
+        elif date_range == 'week':
+            # Calculate start of the week (last Sunday)
+            start_of_week = today - timedelta(days=today.weekday() + 1)
+            query = query.filter(MealHistory.date_selected >= start_of_week)
+        elif date_range == 'month':
+            # Calculate start of the month
+            start_of_month = today.replace(day=1)
+            query = query.filter(MealHistory.date_selected >= start_of_month)
+    
+    # Execute paginated query
+    paginated_meals = query.order_by(MealHistory.date_selected.desc()).paginate(page=page, per_page=per_page, error_out=False)
+    
+    return render_template('admin/meals.html', 
+                          title='Manage Meals', 
+                          meals=paginated_meals.items,
+                          pagination=paginated_meals,
+                          current_page=page,
+                          total_pages=paginated_meals.pages,
+                          prev_page=paginated_meals.prev_num if paginated_meals.has_prev else None,
+                          next_page=paginated_meals.next_num if paginated_meals.has_next else None)
 
 @admin_bp.route('/meals/add', methods=['GET', 'POST'])
 @admin_required
@@ -187,4 +403,40 @@ def popular_meals():
     return render_template('admin/popular_meals.html',
                           title='Popular Meals',
                           popular_meals=popular_meals,
-                          popular_custom_meals=popular_custom_meals) 
+                          popular_custom_meals=popular_custom_meals)
+
+@admin_bp.route('/meals/<int:meal_id>')
+@admin_required
+def meal_details(meal_id):
+    meal = MealHistory.query.get_or_404(meal_id)
+    
+    # Calculate nutritional info if available
+    nutritional_data = {}
+    if meal.nutritional_info:
+        try:
+            nutritional_data = json.loads(meal.nutritional_info)
+        except json.JSONDecodeError:
+            nutritional_data = {}
+    
+    # Parse ingredients if available
+    ingredients = []
+    if meal.ingredients:
+        try:
+            ingredients = json.loads(meal.ingredients)
+        except json.JSONDecodeError:
+            ingredients = []
+    
+    # Parse instructions if available
+    instructions = []
+    if meal.instructions:
+        try:
+            instructions = json.loads(meal.instructions)
+        except json.JSONDecodeError:
+            instructions = []
+    
+    return render_template('admin/meal_details.html',
+                          title=f'Meal Details - {meal.meal_name}',
+                          meal=meal,
+                          nutritional_data=nutritional_data,
+                          ingredients=ingredients,
+                          instructions=instructions) 
