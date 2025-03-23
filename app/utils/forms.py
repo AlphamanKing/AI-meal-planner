@@ -1,4 +1,5 @@
 from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
 from wtforms import StringField, PasswordField, SubmitField, BooleanField, SelectField, FloatField, TextAreaField
 from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, NumberRange
 from app.models.user import User
@@ -72,4 +73,30 @@ class MealForm(FlaskForm):
                                     ('Lunch', 'Lunch'), 
                                     ('Supper', 'Supper')],
                             validators=[DataRequired()])
-    submit = SubmitField('Save Meal') 
+    submit = SubmitField('Save Meal')
+
+class UserProfileForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=3, max=20)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    profile_picture = FileField('Profile Picture', validators=[FileAllowed(['jpg', 'png', 'jpeg'], 'Images only!')])
+    current_password = PasswordField('Current Password', validators=[])
+    new_password = PasswordField('New Password', validators=[])
+    confirm_new_password = PasswordField('Confirm New Password', validators=[EqualTo('new_password')])
+    submit = SubmitField('Update Profile')
+    
+    def __init__(self, original_username, original_email, *args, **kwargs):
+        super(UserProfileForm, self).__init__(*args, **kwargs)
+        self.original_username = original_username
+        self.original_email = original_email
+    
+    def validate_username(self, username):
+        if username.data != self.original_username:
+            user = User.query.filter_by(username=username.data).first()
+            if user:
+                raise ValidationError('Username is already taken. Please choose another one.')
+    
+    def validate_email(self, email):
+        if email.data != self.original_email:
+            user = User.query.filter_by(email=email.data).first()
+            if user:
+                raise ValidationError('Email is already registered. Please use a different one.') 
