@@ -14,6 +14,7 @@ class Meal(db.Model):
     estimated_cost = db.Column(db.Float, nullable=False)
     nutritional_info = db.Column(db.Text, nullable=True)  # JSON string
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    popularity = db.Column(db.Integer, default=0)  # Track meal popularity
     
     # Remove relationship since we're storing meals directly in MealHistory now
     
@@ -29,7 +30,8 @@ class Meal(db.Model):
             'instructions': json.loads(self.instructions) if self.instructions else [],
             'estimated_cost': self.estimated_cost,
             'meal_type': self.meal_type,
-            'nutritional_info': json.loads(self.nutritional_info) if self.nutritional_info else {}
+            'nutritional_info': json.loads(self.nutritional_info) if self.nutritional_info else {},
+            'popularity': self.popularity
         }
 
 
@@ -38,6 +40,7 @@ class MealHistory(db.Model):
     
     id = db.Column(db.Integer, primary_key=True)
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=False)
+    meal_id = db.Column(db.Integer, db.ForeignKey('meals.id'), nullable=True)
     meal_type = db.Column(db.String(20), nullable=False)
     meal_name = db.Column(db.String(100), nullable=True)
     description = db.Column(db.Text, nullable=True)
@@ -49,8 +52,9 @@ class MealHistory(db.Model):
     nutritional_info = db.Column(db.Text, nullable=True)  # JSON string of nutritional info
     date_selected = db.Column(db.DateTime, default=datetime.utcnow)
     
-    # Relationship
+    # Relationships
     user = db.relationship('User', backref='meal_history')
+    meal = db.relationship('Meal', backref='history_entries')
     
     def __repr__(self):
         return f"<MealHistory {self.id}: {self.meal_name}>"

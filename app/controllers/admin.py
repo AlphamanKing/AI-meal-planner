@@ -452,8 +452,19 @@ def delete_meal(meal_id):
 @admin_bp.route('/popular-meals')
 @admin_required
 def popular_meals():
-    # Get most popular predefined meals
-    popular_meals = Meal.query.order_by(Meal.popularity.desc()).limit(10).all()
+    # Use MealHistory to find popular meals instead of using Meal.popularity
+    popular_meals_query = db.session.query(
+        MealHistory.meal_name,
+        func.count(MealHistory.id).label('count')
+    ).filter(
+        MealHistory.meal_name.isnot(None)  # Ensure name exists
+    ).group_by(MealHistory.meal_name).order_by(desc('count')).limit(10).all()
+    
+    # Format the results as a list of dictionaries
+    popular_meals = [
+        {'name': meal_name, 'popularity': count} 
+        for meal_name, count in popular_meals_query
+    ]
     
     # Get popular custom meals from history (count by meal_name)
     popular_custom_meals = db.session.query(
