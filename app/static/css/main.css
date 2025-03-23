@@ -170,6 +170,78 @@ footer a:hover {
     to { opacity: 1; }
 }
 
+/* Dark Mode Styles */
+.dark-mode {
+    background-color: #1a1d21;
+    color: #e9ecef;
+}
+
+.dark-mode .card {
+    background-color: #212529;
+    border-color: #343a40;
+}
+
+.dark-mode .card-header {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+.dark-mode .card-footer {
+    background-color: #343a40;
+    border-color: #495057;
+}
+
+.dark-mode .form-control,
+.dark-mode .form-select {
+    background-color: #343a40;
+    border-color: #495057;
+    color: #e9ecef;
+}
+
+.dark-mode .table {
+    color: #e9ecef;
+}
+
+.dark-mode .table-light,
+.dark-mode .table-hover tbody tr:hover {
+    color: #e9ecef;
+    background-color: #343a40;
+}
+
+.dark-mode .table thead th {
+    background-color: #343a40;
+    color: #e9ecef;
+    border-color: #495057;
+}
+
+.dark-mode .table-hover tbody tr:hover {
+    background-color: #2c3034;
+}
+
+.dark-mode .modal-content {
+    background-color: #212529;
+    border-color: #343a40;
+}
+
+.dark-mode .modal-header,
+.dark-mode .modal-footer {
+    border-color: #343a40;
+}
+
+.dark-mode .list-group-item {
+    background-color: #343a40;
+    border-color: #495057;
+    color: #e9ecef;
+}
+
+.dark-mode .table-light th,
+.dark-mode .table-light td,
+.dark-mode .table-light thead th {
+    background-color: #343a40;
+    color: #e9ecef;
+    border-color: #495057;
+}
+
 /* Responsive Adjustments */
 @media (max-width: 768px) {
     .feature-icon-lg {

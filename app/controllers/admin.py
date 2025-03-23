@@ -288,13 +288,23 @@ def meals():
     per_page = 10  # Number of meals per page
     
     # Apply filters if provided
+    username_filter = request.args.get('username', '')
+    meal_name_filter = request.args.get('meal_name', '')
     meal_type_filter = request.args.get('meal_type', '')
     date_range = request.args.get('date_range', '')
     
     # Start with base query
     query = MealHistory.query
     
-    # Apply filters
+    # Apply username filter (join with User table)
+    if username_filter:
+        query = query.join(User, MealHistory.user_id == User.id).filter(User.username.contains(username_filter))
+    
+    # Apply meal name filter
+    if meal_name_filter:
+        query = query.filter(MealHistory.meal_name.contains(meal_name_filter))
+    
+    # Apply meal type filter
     if meal_type_filter:
         query = query.filter(MealHistory.meal_type == meal_type_filter)
     
